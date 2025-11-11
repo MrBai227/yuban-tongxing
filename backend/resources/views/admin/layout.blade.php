@@ -20,6 +20,7 @@
           <a href="{{ route('admin.treeholes.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('admin.treeholes.*') ? 'bg-slate-200 text-slate-900' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">树洞管理</a>
           <a href="{{ route('admin.categories.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('admin.categories.*') ? 'bg-slate-200 text-slate-900' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">分类管理</a>
           <a href="{{ route('admin.system_notifications.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('admin.system_notifications.*') ? 'bg-slate-200 text-slate-900' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">系统通知</a>
+          <a href="{{ route('admin.practice_logs.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('admin.practice_logs.*') ? 'bg-slate-200 text-slate-900' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">练习打卡</a>
       @auth
           <form action="{{ route('admin.logout') }}" method="POST" class="inline">
               @csrf

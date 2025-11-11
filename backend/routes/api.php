@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\UserActivityController;
 use App\Http\Controllers\Api\PostViewController;
 use App\Http\Controllers\Api\FollowController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\PracticeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -110,6 +111,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Follow API
     Route::post('/users/{user}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{user}/follow', [FollowController::class, 'unfollow']);
+
+    // Practice API (打卡)
+    Route::post('/practice/logs', [PracticeController::class, 'store']);
+    Route::get('/practice/logs', [PracticeController::class, 'index']);
+    Route::get('/practice/stats', [PracticeController::class, 'stats']);
 });
 
 // Auth API

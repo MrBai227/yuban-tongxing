@@ -69,5 +69,10 @@ Route::prefix('admin')->group(function () {
         Route::get('/system_notifications/create', [SystemNotificationsController::class, 'create'])->name('admin.system_notifications.create');
         Route::post('/system_notifications', [SystemNotificationsController::class, 'store'])->name('admin.system_notifications.store');
         Route::delete('/system_notifications/{notification}', [SystemNotificationsController::class, 'destroy'])->name('admin.system_notifications.destroy');
+
+        // Practice Logs management
+        Route::get('/practice_logs', [\App\Http\Controllers\Admin\PracticeLogsController::class, 'index'])->name('admin.practice_logs.index');
+        Route::get('/practice_logs/create', [\App\Http\Controllers\Admin\PracticeLogsController::class, 'create'])->name('admin.practice_logs.create');
+        Route::post('/practice_logs', [\App\Http\Controllers\Admin\PracticeLogsController::class, 'store'])->name('admin.practice_logs.store');
     });
 });

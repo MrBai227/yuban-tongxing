@@ -97,7 +97,8 @@ class MoodController extends Controller
     public function destroy(Mood $mood, Request $request)
     {
         $user = $request->user();
-        if ($user->id !== $mood->user_id) {
+        if (!$user) { return response()->json(['message' => 'Unauthorized'], 401); }
+        if ($user->id !== $mood->user_id && !$user->is_admin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
         $mood->delete();

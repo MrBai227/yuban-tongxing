@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,7 +26,14 @@ class App extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '语伴同行',
-      theme: buildNiceTheme(seedColor: Colors.teal),
+      // 应用 Cupertino 风格覆盖，提升 iOS 风格一致性
+      theme: buildNiceTheme(seedColor: Colors.teal).copyWith(
+        cupertinoOverrideTheme: const CupertinoThemeData(
+          primaryColor: CupertinoColors.activeBlue,
+          barBackgroundColor: CupertinoColors.systemGrey6,
+          scaffoldBackgroundColor: CupertinoColors.systemBackground,
+        ),
+      ),
       home: const RootShell(),
     );
   }
@@ -161,75 +169,78 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final drawerItems = <Widget>[
+      const ListTile(title: Text('快捷入口')),
+      ListTile(
+        leading: const Icon(Icons.drafts_outlined),
+        title: const Text('我的草稿'),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const MyDraftsPage()));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.comment_bank_outlined),
+        title: const Text('我的评论'),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => MyCommentsPage(token: _token)));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.visibility_outlined),
+        title: const Text('浏览记录'),
+        onTap: () {
+          Navigator.pop(context);
+          if (_token == null) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请先登录')));
+            return;
+          }
+          Navigator.push(context, MaterialPageRoute(builder: (_) => BrowsingHistoryPage(token: _token!)));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.settings_outlined),
+        title: const Text('设置'),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage(
+            token: _token,
+            onLoggedOut: () async {
+              setState(() {
+                _token = null;
+                _userName = null;
+                _userEmail = null;
+                _userBio = null;
+                _avatarUrl = null;
+                _accountId = null;
+                _totalUnreadCount = 0;
+              });
+              _stopUnreadPolling();
+            },
+          )));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.support_agent_outlined),
+        title: const Text('帮助与客服'),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage()));
+        },
+      ),
+    ];
     return Scaffold(
       drawer: Drawer(
         child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const ListTile(title: Text('快捷入口')),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.drafts_outlined),
-                title: const Text('我的草稿'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const MyDraftsPage()));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.comment_bank_outlined),
-                title: const Text('我的评论'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => MyCommentsPage(token: _token)));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.visibility_outlined),
-                title: const Text('浏览记录'),
-                onTap: () {
-                  Navigator.pop(context);
-                  if (_token == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请先登录')));
-                    return;
-                  }
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => BrowsingHistoryPage(token: _token!)));
-                },
-              ),
-              const Spacer(),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.settings_outlined),
-                title: const Text('设置'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage(
-                    token: _token,
-                    onLoggedOut: () async {
-                      setState(() {
-                        _token = null;
-                        _userName = null;
-                        _userEmail = null;
-                        _userBio = null;
-                        _avatarUrl = null;
-                        _accountId = null;
-                        _totalUnreadCount = 0;
-                      });
-                      _stopUnreadPolling();
-                    },
-                  )));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.support_agent_outlined),
-                title: const Text('帮助与客服'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage()));
-                },
-              ),
-            ],
+          child: ListTileTheme(
+            data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: drawerItems.length,
+              itemBuilder: (context, index) => drawerItems[index],
+              separatorBuilder: (_, __) => const Divider(height: 1),
+            ),
           ),
         ),
       ),
@@ -286,7 +297,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
           }
         }),
         TreeHolePage(token: _token),
-        const PracticePage(),
+        PracticePage(token: _token),
         MessagesPage(token: _token, onUnreadChanged: () async {
           await _fetchUnreadCounts();
         }),
@@ -1119,6 +1130,12 @@ class _TreeHolePageState extends State<TreeHolePage> {
 
   Future<void> _deleteMood(Map<String, dynamic> item) async {
     final id = item['id'];
+    if (widget.token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请先登录后再删除')));
+      }
+      return;
+    }
     try {
       final uri = Uri.parse('$apiBase/api/moods/$id');
       final res = await http.delete(uri, headers: {'Authorization': 'Bearer ${widget.token}'});
@@ -1127,8 +1144,16 @@ class _TreeHolePageState extends State<TreeHolePage> {
           _items.removeWhere((e) => e['id'] == id);
         });
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已删除')));
+      } else if (res.statusCode == 401) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('未登录，无法删除')));
+      } else if (res.statusCode == 403) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无权删除：仅作者可删除')));
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('删除失败：${res.statusCode}')));
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('网络错误或后端不可用')));
+    }
   }
 }
 
@@ -1811,31 +1836,34 @@ class _LoginPageState extends State<LoginPage> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text(_isLogin ? '登录' : '注册')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            if (!_isLogin)
-              TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '昵称')),
-            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: '邮箱')),
-            const SizedBox(height: 8),
-            TextField(controller: _pwdCtrl, decoration: const InputDecoration(labelText: '密码'), obscureText: true),
-            const SizedBox(height: 16),
-            if (_error != null)
-              Text(_error!, style: TextStyle(color: cs.error)),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                child: Text(_isLogin ? '登录' : '注册'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              if (!_isLogin)
+                TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '昵称', border: OutlineInputBorder())),
+              if (!_isLogin) const SizedBox(height: 8),
+              TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: '邮箱', border: OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _pwdCtrl, decoration: const InputDecoration(labelText: '密码', border: OutlineInputBorder()), obscureText: true),
+              const SizedBox(height: 16),
+              if (_error != null)
+                Text(_error!, style: TextStyle(color: cs.error)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _loading ? null : _submit,
+                  child: Text(_isLogin ? '登录' : '注册'),
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: () => setState(() => _isLogin = !_isLogin),
-              child: Text(_isLogin ? '没有账号？去注册' : '已有账号？去登录'),
-            ),
-          ],
+              TextButton(
+                onPressed: () => setState(() => _isLogin = !_isLogin),
+                child: Text(_isLogin ? '没有账号？去注册' : '已有账号？去登录'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2062,8 +2090,50 @@ class _PostDetailPageState extends State<PostDetailPage> {
   }
 }
 
-class PracticePage extends StatelessWidget {
-  const PracticePage({super.key});
+class PracticePage extends StatefulWidget {
+  const PracticePage({super.key, this.token});
+  final String? token;
+  @override
+  State<PracticePage> createState() => _PracticePageState();
+}
+
+class _PracticePageState extends State<PracticePage> {
+  int _totalSessions = 0;
+  int _totalDurationSeconds = 0;
+  int _weekSessions = 0;
+  int _weekDurationSeconds = 0;
+  bool _statsLoading = false;
+
+  Future<void> _loadStats() async {
+    if (widget.token == null) return;
+    setState(() => _statsLoading = true);
+    try {
+      final uri = Uri.parse('$apiBase/api/practice/stats');
+      final headers = <String, String>{'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ${widget.token}'};
+      final res = await http.get(uri, headers: headers);
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body) as Map<String, dynamic>;
+        setState(() {
+          _totalSessions = (data['total_sessions'] as num?)?.toInt() ?? 0;
+          _totalDurationSeconds = (data['total_duration_seconds'] as num?)?.toInt() ?? 0;
+          _weekSessions = (data['week_sessions'] as num?)?.toInt() ?? 0;
+          _weekDurationSeconds = (data['week_duration_seconds'] as num?)?.toInt() ?? 0;
+        });
+      }
+    } catch (_) {
+      // 忽略错误，保持静默
+    } finally {
+      if (mounted) setState(() => _statsLoading = false);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  String _mins(int seconds) => (seconds / 60).toStringAsFixed(1);
 
   @override
   Widget build(BuildContext context) {
@@ -2073,6 +2143,32 @@ class PracticePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          NiceCard(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('总练习', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(_statsLoading ? '加载中…' : '${_totalSessions} 次 · ${_mins(_totalDurationSeconds)} 分钟',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('本周', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(_statsLoading ? '加载中…' : '${_weekSessions} 次 · ${_mins(_weekDurationSeconds)} 分钟',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [cs.primaryContainer, cs.secondaryContainer]),
@@ -2093,19 +2189,261 @@ class PracticePage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           NiceActionButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PracticeSessionPage(token: widget.token)));
+            },
             icon: Icons.play_arrow,
             label: '开始练习',
             variant: NiceButtonVariant.primary,
           ),
           const SizedBox(height: 12),
           NiceActionButton(
-            onPressed: () {},
-            icon: Icons.upload_file,
-            label: '上传录音并获取反馈',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PracticeHistoryPage(token: widget.token)));
+            },
+            icon: Icons.history,
+            label: '查看打卡记录',
             variant: NiceButtonVariant.outline,
           ),
-        ],
+      ],
+    ),
+  );
+}
+}
+
+class PracticeSessionPage extends StatefulWidget {
+  const PracticeSessionPage({super.key, this.token});
+  final String? token;
+
+  @override
+  State<PracticeSessionPage> createState() => _PracticeSessionPageState();
+}
+
+class _PracticeSessionPageState extends State<PracticeSessionPage> {
+  int _step = 0; // 0: 轻声起音, 1: 延长发音, 2: 朗读
+  int _secondsLeft = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startStep(0);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startStep(int step) {
+    _timer?.cancel();
+    setState(() {
+      _step = step;
+      _secondsLeft = step == 0 ? 30 : (step == 1 ? 60 : 90);
+    });
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_secondsLeft <= 1) {
+        t.cancel();
+        setState(() => _secondsLeft = 0);
+      } else {
+        setState(() => _secondsLeft -= 1);
+      }
+    });
+  }
+
+  void _next() {
+    if (_step < 2) {
+      _startStep(_step + 1);
+    } else {
+      // 练习完成后打卡
+      _submitPracticeLog();
+    }
+  }
+
+  Future<void> _submitPracticeLog() async {
+    if (widget.token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请先登录后再打卡')));
+      }
+      return;
+    }
+
+    final total = 30 + 60 + 90;
+    final uri = Uri.parse('$apiBase/api/practice/logs');
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${widget.token}',
+    };
+    final body = json.encode({
+      'duration_seconds': total,
+      'soft_onset_seconds': 30,
+      'prolonged_seconds': 60,
+      'reading_seconds': 90,
+      'note': '标准三阶段练习',
+    });
+
+    try {
+      final res = await http.post(uri, headers: headers, body: body);
+      if (!mounted) return;
+      if (res.statusCode == 201) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('练习完成并已打卡！')));
+      } else if (res.statusCode == 401) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('未登录或登录已失效，请重新登录')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('打卡失败，请稍后重试')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('网络异常，稍后重试')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    String title;
+    String hint;
+    switch (_step) {
+      case 0:
+        title = '轻声起音';
+        hint = '放松，轻声起音，保持气息均匀。';
+        break;
+      case 1:
+        title = '延长发音';
+        hint = '尽量稳定地延长发音，注意不要憋气。';
+        break;
+      default:
+        title = '朗读 2 段';
+        hint = '选择任意两段文字，慢速、清晰地朗读。';
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: Text('练习 · $title')),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            NiceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Text(hint, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      _secondsLeft > 0 ? '${_secondsLeft}s' : '已完成本阶段',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(color: cs.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: NiceActionButton(
+                    onPressed: () => _startStep(_step),
+                    icon: Icons.restart_alt,
+                    label: '重新开始此阶段',
+                    variant: NiceButtonVariant.outline,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: NiceActionButton(
+                    onPressed: _next,
+                    icon: Icons.arrow_forward,
+                    label: _step < 2 ? '下一步' : '完成',
+                    variant: NiceButtonVariant.primary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PracticeHistoryPage extends StatefulWidget {
+  const PracticeHistoryPage({super.key, this.token});
+  final String? token;
+
+  @override
+  State<PracticeHistoryPage> createState() => _PracticeHistoryPageState();
+}
+
+class _PracticeHistoryPageState extends State<PracticeHistoryPage> {
+  bool _loading = false;
+  int _page = 1;
+  bool _hasMore = true;
+  List<Map<String, dynamic>> _items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load(reset: true);
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading) return; setState(() => _loading = true);
+    if (reset) { _page = 1; _hasMore = true; _items.clear(); }
+    try {
+      final uri = Uri.parse('$apiBase/api/practice/logs?per_page=10&page=$_page');
+      final headers = <String, String>{'Accept': 'application/json'};
+      if (widget.token != null) { headers['Authorization'] = 'Bearer ${widget.token}'; }
+      final res = await http.get(uri, headers: headers);
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body) as Map<String, dynamic>;
+        final items = (data['data'] as List).cast<Map<String, dynamic>>();
+        setState(() {
+          _items.addAll(items);
+          _hasMore = data['has_more'] == true;
+          _page += 1;
+        });
+      }
+    } catch (_) {}
+    setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('练习打卡记录')),
+      body: ListView.builder(
+        itemCount: _items.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= _items.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: NiceActionButton(onPressed: () => _load(), icon: Icons.expand_more, label: _loading ? '加载中…' : '加载更多'),
+              ),
+            );
+          }
+          final e = _items[index];
+          final createdAt = e['created_at'];
+          final duration = e['duration_seconds'] ?? 0;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: NiceCard(
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('${createdAt} · ${duration}s')),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2477,52 +2815,54 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tiles = <Widget>[
+      ListTile(
+        leading: const Icon(Icons.security),
+        title: const Text('账号与安全'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => AccountSecurityPage(token: token)));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.privacy_tip_outlined),
+        title: const Text('隐私设置'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacySettingsPage()));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.support_agent_outlined),
+        title: const Text('帮助与客服'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage()));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.info_outline),
+        title: const Text('关于语伴同行'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.logout),
+        title: const Text('退出登录'),
+        onTap: () => _performLogout(context),
+      ),
+    ];
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.security),
-            title: const Text('账号与安全'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => AccountSecurityPage(token: token)));
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text('隐私设置'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacySettingsPage()));
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.support_agent_outlined),
-            title: const Text('帮助与客服'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage()));
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('关于语伴同行'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()));
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('退出登录'),
-            onTap: () => _performLogout(context),
-          ),
-        ],
+      body: ListTileTheme(
+        data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+        child: ListView.separated(
+          itemCount: tiles.length,
+          itemBuilder: (context, index) => tiles[index],
+          separatorBuilder: (context, index) => const Divider(height: 1),
+        ),
       ),
     );
   }
@@ -2533,35 +2873,40 @@ class AccountSecurityPage extends StatelessWidget {
   final String? token;
   @override
   Widget build(BuildContext context) {
+    final tiles = <Widget>[
+      ListTile(
+        leading: const Icon(Icons.devices_other_outlined),
+        title: const Text('登录设备管理'),
+        subtitle: const Text('查看并管理已登录设备（占位）'),
+        onTap: () {
+          showDialog(context: context, builder: (_) => const AlertDialog(title: Text('提示'), content: Text('该功能尚未开发')));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.delete_forever_outlined),
+        title: const Text('注销账号'),
+        subtitle: const Text('永久删除账户（占位）'),
+        onTap: () {
+          showDialog(context: context, builder: (_) => AlertDialog(
+            title: const Text('确认注销'),
+            content: const Text('该功能尚未开发，确认后不执行任何操作。'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+            ],
+          ));
+        },
+      ),
+    ];
     return Scaffold(
       appBar: AppBar(title: const Text('账号与安全')),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.devices_other_outlined),
-            title: const Text('登录设备管理'),
-            subtitle: const Text('查看并管理已登录设备（占位）'),
-            onTap: () {
-              showDialog(context: context, builder: (_) => const AlertDialog(title: Text('提示'), content: Text('该功能尚未开发')));
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.delete_forever_outlined),
-            title: const Text('注销账号'),
-            subtitle: const Text('永久删除账户（占位）'),
-            onTap: () {
-              showDialog(context: context, builder: (_) => AlertDialog(
-                title: const Text('确认注销'),
-                content: const Text('该功能尚未开发，确认后不执行任何操作。'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
-                ],
-              ));
-            },
-          ),
-        ],
+      body: ListTileTheme(
+        data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+        child: ListView.separated(
+          itemCount: tiles.length,
+          itemBuilder: (context, index) => tiles[index],
+          separatorBuilder: (context, index) => const Divider(height: 1),
+        ),
       ),
     );
   }
@@ -2630,79 +2975,80 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tiles = <Widget>[
+      SwitchListTile(
+        secondary: const Icon(Icons.comment_bank_outlined),
+        title: const Text('只允许我关注的人评论我'),
+        subtitle: const Text('开启后，未被我关注的用户无法评论我'),
+        value: _onlyFollowingsCanComment,
+        onChanged: (v) {
+          setState(() => _onlyFollowingsCanComment = v);
+          _saveBool('privacy_only_followings_can_comment', v);
+        },
+      ),
+      SwitchListTile(
+        secondary: const Icon(Icons.alternate_email_outlined),
+        title: const Text('只允许我关注的人@我'),
+        subtitle: const Text('开启后，未被我关注的用户无法@我'),
+        value: _onlyFollowingsCanMention,
+        onChanged: (v) {
+          setState(() => _onlyFollowingsCanMention = v);
+          _saveBool('privacy_only_followings_can_mention', v);
+        },
+      ),
+      SwitchListTile(
+        secondary: const Icon(Icons.favorite_outline),
+        title: const Text('我的收藏是否公开'),
+        subtitle: Text(_favoritesPublic ? '公开' : '不公开', style: TextStyle(color: cs.onSurfaceVariant)),
+        value: _favoritesPublic,
+        onChanged: (v) {
+          setState(() => _favoritesPublic = v);
+          _saveBool('privacy_favorites_public', v);
+        },
+      ),
+      SwitchListTile(
+        secondary: const Icon(Icons.reviews_outlined),
+        title: const Text('我的评价是否公开'),
+        subtitle: Text(_ratingsPublic ? '公开' : '不公开', style: TextStyle(color: cs.onSurfaceVariant)),
+        value: _ratingsPublic,
+        onChanged: (v) {
+          setState(() => _ratingsPublic = v);
+          _saveBool('privacy_ratings_public', v);
+        },
+      ),
+      SwitchListTile(
+        secondary: const Icon(Icons.public_outlined),
+        title: const Text('我的空间是否公开'),
+        subtitle: Text(_spacePublic ? '公开' : '不公开', style: TextStyle(color: cs.onSurfaceVariant)),
+        value: _spacePublic,
+        onChanged: (v) {
+          setState(() => _spacePublic = v);
+          _saveBool('privacy_space_public', v);
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.block_outlined),
+        title: const Text('黑名单用户'),
+        subtitle: Text(_blacklist.isEmpty ? '未添加黑名单' : '共${_blacklist.length}人'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async {
+          final updated = await Navigator.push<List<int>>(context, MaterialPageRoute(builder: (_) => BlacklistPage(initial: _blacklist)));
+          if (updated != null) {
+            setState(() => _blacklist = updated);
+            _saveBlacklist();
+          }
+        },
+      ),
+    ];
     return Scaffold(
       appBar: AppBar(title: const Text('隐私设置')),
-      body: ListView(
-        children: [
-          SwitchListTile(
-            secondary: const Icon(Icons.comment_bank_outlined),
-            title: const Text('只允许我关注的人评论我'),
-            subtitle: const Text('开启后，未被我关注的用户无法评论我'),
-            value: _onlyFollowingsCanComment,
-            onChanged: (v) {
-              setState(() => _onlyFollowingsCanComment = v);
-              _saveBool('privacy_only_followings_can_comment', v);
-            },
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            secondary: const Icon(Icons.alternate_email_outlined),
-            title: const Text('只允许我关注的人@我'),
-            subtitle: const Text('开启后，未被我关注的用户无法@我'),
-            value: _onlyFollowingsCanMention,
-            onChanged: (v) {
-              setState(() => _onlyFollowingsCanMention = v);
-              _saveBool('privacy_only_followings_can_mention', v);
-            },
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            secondary: const Icon(Icons.favorite_outline),
-            title: const Text('我的收藏是否公开'),
-            subtitle: Text(_favoritesPublic ? '公开' : '不公开', style: TextStyle(color: cs.onSurfaceVariant)),
-            value: _favoritesPublic,
-            onChanged: (v) {
-              setState(() => _favoritesPublic = v);
-              _saveBool('privacy_favorites_public', v);
-            },
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            secondary: const Icon(Icons.reviews_outlined),
-            title: const Text('我的评价是否公开'),
-            subtitle: Text(_ratingsPublic ? '公开' : '不公开', style: TextStyle(color: cs.onSurfaceVariant)),
-            value: _ratingsPublic,
-            onChanged: (v) {
-              setState(() => _ratingsPublic = v);
-              _saveBool('privacy_ratings_public', v);
-            },
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            secondary: const Icon(Icons.public_outlined),
-            title: const Text('我的空间是否公开'),
-            subtitle: Text(_spacePublic ? '公开' : '不公开', style: TextStyle(color: cs.onSurfaceVariant)),
-            value: _spacePublic,
-            onChanged: (v) {
-              setState(() => _spacePublic = v);
-              _saveBool('privacy_space_public', v);
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.block_outlined),
-            title: const Text('黑名单用户'),
-            subtitle: Text(_blacklist.isEmpty ? '未添加黑名单' : '共${_blacklist.length}人'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final updated = await Navigator.push<List<int>>(context, MaterialPageRoute(builder: (_) => BlacklistPage(initial: _blacklist)));
-              if (updated != null) {
-                setState(() => _blacklist = updated);
-                _saveBlacklist();
-              }
-            },
-          ),
-        ],
+      body: ListTileTheme(
+        data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+        child: ListView.separated(
+          itemCount: tiles.length,
+          itemBuilder: (context, index) => tiles[index],
+          separatorBuilder: (context, index) => const Divider(height: 1),
+        ),
       ),
     );
   }
@@ -2748,53 +3094,47 @@ class _BlacklistPageState extends State<BlacklistPage> {
       appBar: AppBar(
         title: const Text('黑名单用户'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, _ids),
-            child: const Text('完成'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, _ids), child: const Text('完成')),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _inputCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      hintText: '输入用户ID并添加到黑名单',
-                      border: OutlineInputBorder(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _inputCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(hintText: '输入用户ID并添加到黑名单', border: OutlineInputBorder()),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(onPressed: _addId, child: const Text('添加')),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView.separated(
-                itemCount: _ids.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final id = _ids[index];
-                  return ListTile(
-                    leading: const Icon(Icons.person_off_outlined),
-                    title: Text('用户ID：$id'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _removeId(id),
-                    ),
-                  );
-                },
+                  const SizedBox(width: 8),
+                  ElevatedButton(onPressed: _addId, child: const Text('添加')),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _ids.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final id = _ids[index];
+                    return ListTile(
+                      leading: const Icon(Icons.person_off_outlined),
+                      title: Text('用户ID：$id'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _removeId(id),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
     );
   }
 }
@@ -3015,25 +3355,36 @@ class _MeFollowsSectionState extends State<MeFollowsSection> with SingleTickerPr
   }
 
   Widget _buildUserList(List<Map<String, dynamic>> items, bool hasMore, VoidCallback onLoadMore) {
-    return Column(
-      children: [
-        for (final u in items)
-          ListTile(
+    final count = items.isEmpty ? 1 : items.length + (hasMore ? 1 : 0);
+    return ListTileTheme(
+      data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(8),
+        itemCount: count,
+        itemBuilder: (context, index) {
+          if (items.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('暂无数据'),
+            );
+          }
+          if (hasMore && index == items.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: NiceActionButton(onPressed: onLoadMore, icon: Icons.expand_more, label: '加载更多'),
+              ),
+            );
+          }
+          final u = items[index];
+          return ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text((u['name'] ?? '') as String),
             subtitle: Text((u['email'] ?? '') as String),
-          ),
-        if (hasMore)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: NiceActionButton(onPressed: onLoadMore, icon: Icons.expand_more, label: '加载更多'),
-          ),
-        if (!hasMore && items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('暂无数据'),
-          ),
-      ],
+          );
+        },
+        separatorBuilder: (context, index) => const Divider(height: 1),
+      ),
     );
   }
 
@@ -3097,8 +3448,8 @@ class _MeFollowsSectionState extends State<MeFollowsSection> with SingleTickerPr
             child: TabBarView(
               controller: _tabController,
               children: [
-                SingleChildScrollView(padding: const EdgeInsets.all(8), child: _buildUserList(_followings, _hasMoreFollowings, () => _loadFollowings())),
-                SingleChildScrollView(padding: const EdgeInsets.all(8), child: _buildUserList(_followers, _hasMoreFollowers, () => _loadFollowers())),
+                _buildUserList(_followings, _hasMoreFollowings, () => _loadFollowings()),
+                _buildUserList(_followers, _hasMoreFollowers, () => _loadFollowers()),
               ],
             ),
           ),
@@ -3192,25 +3543,36 @@ class _FollowsPageState extends State<FollowsPage> with SingleTickerProviderStat
   }
 
   Widget _buildUserList(List<Map<String, dynamic>> items, bool hasMore, VoidCallback onLoadMore) {
-    return Column(
-      children: [
-        for (final u in items)
-          ListTile(
+    final count = items.isEmpty ? 1 : items.length + (hasMore ? 1 : 0);
+    return ListTileTheme(
+      data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: count,
+        itemBuilder: (context, index) {
+          if (items.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('暂无数据'),
+            );
+          }
+          if (hasMore && index == items.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: NiceActionButton(onPressed: onLoadMore, icon: Icons.expand_more, label: '加载更多'),
+              ),
+            );
+          }
+          final u = items[index];
+          return ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text((u['name'] ?? '') as String),
             subtitle: Text((u['email'] ?? '') as String),
-          ),
-        if (hasMore)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: NiceActionButton(onPressed: onLoadMore, icon: Icons.expand_more, label: '加载更多'),
-          ),
-        if (!hasMore && items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('暂无数据'),
-          ),
-      ],
+          );
+        },
+        separatorBuilder: (context, index) => const Divider(height: 1),
+      ),
     );
   }
 
@@ -3231,9 +3593,9 @@ class _FollowsPageState extends State<FollowsPage> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabController,
         children: [
-          SingleChildScrollView(padding: const EdgeInsets.all(12), child: _buildUserList(_mutuals, _hasMoreMutuals, () => _loadMutuals())),
-          SingleChildScrollView(padding: const EdgeInsets.all(12), child: _buildUserList(_followings, _hasMoreFollowings, () => _loadFollowings())),
-          SingleChildScrollView(padding: const EdgeInsets.all(12), child: _buildUserList(_followers, _hasMoreFollowers, () => _loadFollowers())),
+          _buildUserList(_mutuals, _hasMoreMutuals, () => _loadMutuals()),
+          _buildUserList(_followings, _hasMoreFollowings, () => _loadFollowings()),
+          _buildUserList(_followers, _hasMoreFollowers, () => _loadFollowers()),
         ],
       ),
     );
@@ -3562,27 +3924,39 @@ class _MeRecordsSectionState extends State<MeRecordsSection> with SingleTickerPr
   }
 
   Widget _buildList(List<Map<String, dynamic>> items, bool hasMore, VoidCallback onLoadMore) {
-    return Column(
-      children: [
-        for (final p in items)
-          ListTile(
+    final count = items.isEmpty ? 1 : items.length + (hasMore ? 1 : 0);
+    return ListTileTheme(
+      data: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: count,
+        itemBuilder: (context, index) {
+          if (items.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('暂无内容'),
+            );
+          }
+          if (hasMore && index == items.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: NiceActionButton(onPressed: onLoadMore, icon: Icons.expand_more, label: '加载更多'),
+              ),
+            );
+          }
+          final p = items[index];
+          return ListTile(
             leading: const Icon(Icons.article_outlined),
             title: Text((p['title'] ?? '') as String),
             subtitle: Text('👍 ${(p['likes'] ?? 0)}   ⭐ ${(p['favorites'] ?? 0)}   💬 ${(p['comments'] ?? 0)}'),
             onTap: () async {
               await Navigator.push(context, MaterialPageRoute(builder: (_) => PostDetailPage(post: p, token: widget.token)));
             },
-          ),
-        if (hasMore) Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: NiceActionButton(onPressed: onLoadMore, icon: Icons.expand_more, label: '加载更多'),
-        ),
-        if (!hasMore && items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('暂无内容'),
-          ),
-      ],
+          );
+        },
+        separatorBuilder: (context, index) => const Divider(height: 1),
+      ),
     );
   }
 
@@ -3608,9 +3982,9 @@ class _MeRecordsSectionState extends State<MeRecordsSection> with SingleTickerPr
             child: TabBarView(
               controller: _tabController,
               children: [
-                SingleChildScrollView(padding: const EdgeInsets.all(8), child: _buildList(_likes, _hasMoreLikes, () => _loadLikes())),
-                SingleChildScrollView(padding: const EdgeInsets.all(8), child: _buildList(_favorites, _hasMoreFavorites, () => _loadFavorites())),
-                SingleChildScrollView(padding: const EdgeInsets.all(8), child: _buildList(_views, _hasMoreViews, () => _loadViews())),
+                _buildList(_likes, _hasMoreLikes, () => _loadLikes()),
+                _buildList(_favorites, _hasMoreFavorites, () => _loadFavorites()),
+                _buildList(_views, _hasMoreViews, () => _loadViews()),
               ],
             ),
           ),
