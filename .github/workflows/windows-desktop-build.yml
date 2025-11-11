@@ -47,8 +47,40 @@ jobs:
           echo "Using API_BASE=$API_BASE"
           flutter build windows --release --dart-define API_BASE="$API_BASE"
 
+      - name: Inspect build outputs
+        shell: pwsh
+        run: |
+          Write-Host "Listing build outputs under mobile/build/windows..."
+          if (Test-Path "mobile/build/windows") {
+            Get-ChildItem -Path "mobile/build/windows" -Recurse -Depth 3 | ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Host "mobile/build/windows does not exist."
+          }
+
+      - name: Locate Release directory
+        id: locate
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "mobile/build/windows/runner/Release",
+            "mobile/build/windows/x64/runner/Release"
+          )
+          $found = $null
+          foreach ($p in $candidates) {
+            if (Test-Path $p) {
+              $found = $p
+              break
+            }
+          }
+          if (-not $found) {
+            Write-Error "No Release directory found at known paths: $($candidates -join ', ')"
+            exit 1
+          }
+          Write-Host "Found Release directory: $found"
+          "releasePath=$found" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: mobile/build/windows/runner/Release
+          path: ${{ steps.locate.outputs.releasePath }}
