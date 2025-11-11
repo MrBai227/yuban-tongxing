@@ -48,14 +48,13 @@ jobs:
           flutter build windows --release --dart-define API_BASE="$API_BASE"
 
       - name: Zip release bundle
+        shell: pwsh
         working-directory: mobile
         run: |
-          pwsh -Command "\
-            $src = 'build/windows/runner/Release'; \
-            $zip = 'build/windows/runner/语伴同行-Windows-Release.zip'; \
-            if (Test-Path $zip) { Remove-Item $zip }; \
-            Compress-Archive -Path \"$src/*\" -DestinationPath $zip; \
-          "
+          $src = 'build/windows/runner/Release'
+          $zip = 'build/windows/runner/语伴同行-Windows-Release.zip'
+          if (Test-Path $zip) { Remove-Item $zip }
+          Compress-Archive -Path "$src/*" -DestinationPath $zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
