@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义组件（可选） */
+.btn { @apply inline-flex items-center justify-center px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-600; }
+.btn-primary { @apply bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-sm; }
+.btn-danger { @apply bg-red-600 hover:bg-red-700 text-white border-red-600 shadow-sm; }
+.card { @apply bg-white border border-slate-200 rounded-xl p-4 shadow; }
+.container-narrow { @apply max-w-5xl mx-auto px-4; }
+.table { @apply w-full border-collapse text-slate-800; }
+.table thead th { @apply font-semibold text-slate-600; }
+.table th, .table td { @apply border-b border-slate-200 p-3 text-left; }
+
+/* 分页（兼容 Laravel 默认与 Bootstrap 风格） */
+.pagination { @apply mt-4 flex items-center gap-2; }
+.pagination .page-item { @apply list-none; }
+.pagination .page-link { @apply relative inline-flex items-center px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600; }
+.pagination .page-item.active .page-link { @apply bg-blue-600 border-blue-600 text-white; }
+.pagination .page-item.disabled .page-link { @apply opacity-50 cursor-not-allowed; }
+
+/* 当使用 Tailwind 分页模板时的通用包裹处理 */
+.pagination > * { @apply inline-flex items-center; }
+
+/* 通用轻度文本 */
+.muted { @apply text-slate-500; }

@@ -1,0 +1,64 @@
+name: Windows Desktop Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: "Backend API base URL (e.g., https://api.example.com)"
+        required: false
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Flutter doctor (optional)
+        run: flutter doctor -v
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build Windows release
+        working-directory: mobile
+        run: |
+          API_BASE_INPUT='${{ github.event.inputs.api_base }}'
+          API_BASE_SECRET='${{ secrets.API_BASE }}'
+          API_BASE_DEFAULT='https://test-api.example.com'
+          API_BASE="${API_BASE_INPUT:-$API_BASE_SECRET}"
+          API_BASE="${API_BASE:-$API_BASE_DEFAULT}"
+          echo "Using API_BASE=$API_BASE"
+          flutter build windows --release --dart-define API_BASE="$API_BASE"
+
+      - name: Zip release bundle
+        working-directory: mobile
+        run: |
+          pwsh -Command "\
+            $src = 'build/windows/runner/Release'; \
+            $zip = 'build/windows/runner/语伴同行-Windows-Release.zip'; \
+            if (Test-Path $zip) { Remove-Item $zip }; \
+            Compress-Archive -Path \"$src/*\" -DestinationPath $zip; \
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: mobile/build/windows/runner/语伴同行-Windows-Release.zip
